@@ -4,16 +4,25 @@ import java.util.HashSet;
 import java.util.Random;
 
 import android.R;
+import 	android.graphics.Color;
+import 	android.content.res.Resources;
 import android.app.Notification;
+import android.graphics.drawable.Drawable;
+import android.content.Context;
+import 	java.io.IOException;
+import android.graphics.BitmapFactory;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.support.v4.app.NotificationCompat.Builder;
 import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.IBinder;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+
 
 import com.google.appinventor.components.annotations.SimpleFunction;
 
@@ -60,6 +69,10 @@ public class GCMIntentService extends GCMBaseIntentService {
         Log.i(TAG, "The context is"+context.toString());
         mainUIThreadContext = context;
         String newMessage;
+        String message;
+        String title;
+        String icon;
+        String screen;
         
         PACKAGE_NAME = mainUIThreadContext.getPackageName();
         Log.i(TAG,"The package name is "+PACKAGE_NAME+".");
@@ -76,7 +89,28 @@ public class GCMIntentService extends GCMBaseIntentService {
         } else {
             newMessage = intent.getExtras().getString(GCM_MESSAGE_PLAYLOAD_KEY); 
         }
+        if (!intent.getExtras().containsKey("notMessage")) {
+        	message = "Press to open.";
+        } else {
+            message = intent.getExtras().getString("notMessage");
+        }
+        if (!intent.getExtras().containsKey("notTitle")) {
+        	title = "Notification";
+        } else {
+            title = intent.getExtras().getString("notTitle");
+        }
+        if (!intent.getExtras().containsKey("notIcon")) {
+        	icon = "";
+        } else {
+            icon = intent.getExtras().getString("notIcon");
+        }
 
+        if (!intent.getExtras().containsKey("notScreen")) {
+        	screen = "Screen1";
+        } else {
+            screen = intent.getExtras().getString("notScreen");
+        }
+        
         sharedPreferences = context.getSharedPreferences(GCMConstants.PREFS_GOOGLECLOUDMESSAGING,Context.MODE_PRIVATE);
         Log.i(TAG, "The shared preference is "+sharedPreferences.toString()); 
         
@@ -94,8 +128,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         // by the GCMBrocastReceiver.
         if (optPref.equals("in") && GCMEventListeners.isEmpty()){
             try {
-                CreateNotification("You got message.","Press to open.",true,true,PACKAGE_NAME,
-                        PACKAGE_NAME+".Screen1",ARGUMENT_GCM,newMessage);
+                CreateNotification(title,message,true,true,PACKAGE_NAME, PACKAGE_NAME+"."+screen,ARGUMENT_GCM,newMessage,icon);
             } catch (ClassNotFoundException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -260,7 +293,7 @@ public class GCMIntentService extends GCMBaseIntentService {
             + "another activity when tap on the notification")
     public void CreateNotification(String title, String text,
             boolean enabledSound, boolean enabledVibrate, String packageName,
-            String className, String extraKey, String extraVal)
+            String className, String extraKey, String extraVal,String icon)
             throws ClassNotFoundException {
 
         Intent activityToLaunch = new Intent(Intent.ACTION_MAIN);
@@ -294,24 +327,23 @@ public class GCMIntentService extends GCMBaseIntentService {
         Long currentTimeMillis = System.currentTimeMillis();
         
         Log.i(TAG, "after the System.currentTimeMillis");
-        notification = new Notification(R.drawable.stat_notify_chat,
-                "GCM Notification!", currentTimeMillis);
+        try {
+      NotificationCompat.Builder not= new NotificationCompat.Builder( mainUIThreadContext)
+              .setContentIntent(mContentIntent)
+              .setDefaults(Notification.DEFAULT_ALL)
+              .setContentText(text)
+              .setContentTitle(title)
+              .setSmallIcon(R.drawable.ic_popup_reminder)
+              .setAutoCancel(true);
+              if(!icon.equals(""))
+              not.setLargeIcon(BitmapFactory.decodeStream(mainUIThreadContext.getAssets().open(icon)));
 
-        Log.i(TAG, "After creating notification");
-        notification.contentIntent = mContentIntent;
-        notification.flags = Notification.FLAG_AUTO_CANCEL;
 
-        // reset the notification
-        notification.defaults = 0;
-
-        if (enabledSound)
-            notification.defaults |= Notification.DEFAULT_SOUND;
-
-        if (enabledVibrate)
-            notification.defaults |= Notification.DEFAULT_VIBRATE;
-
-        notification.setLatestEventInfo(mainUIThreadContext,
-                (CharSequence) title, (CharSequence) text, mContentIntent);
+notification = not.build();
+notification.flags |= Notification.FLAG_AUTO_CANCEL;
+} catch (IOException e) {
+        e.printStackTrace();
+    }
         Log.i(TAG, "after updated notification contents");
         mNM.notify(PROBE_NOTIFICATION_ID, notification);
         Log.i(TAG, "notified");
